@@ -9,6 +9,7 @@ import {
 } from "../config/socket";
 import Markdown from "markdown-to-jsx";
 import hljs from "highlight.js";
+import app from "../../../Backend/app";
 // import { getWebContainer } from "../config/webcontainer";
 
 // function SyntaxHighlightedCode(props) {
@@ -71,6 +72,17 @@ const Project = () => {
       .then((res) => {
         console.log(res.data);
         setIsModalOpen(false);
+        // Update project.users to reflect the newly added collaborators
+        setProject((prevProject) => ({
+          ...prevProject,
+          users: [
+            ...prevProject.users,
+            ...users.filter((u) => selectedUserId.has(u._id)),
+          ],
+        }));
+
+        // Clear selected users
+        setSelectedUserId(new Set());
       })
       .catch((err) => {
         console.log(err);
@@ -116,7 +128,7 @@ const Project = () => {
 
     receiveMessage("project-message", (data) => {
       console.log(data);
-
+      appendIncomingMessage(data);
       // if (data.sender._id == "ai") {
       //   const message = JSON.parse(data.message);
 
@@ -167,20 +179,62 @@ const Project = () => {
   // }
 
   // // Removed appendIncomingMessage and appendOutgoingMessage functions
-  // function scrollToBottom() {
-  //   messageBox.current.scrollTop = messageBox.current.scrollHeight;
-  // }
+  function appendIncomingMessage(messageObject) {
+    const messageBox = document.querySelector(".message-box");
+
+    const message = document.createElement("div");
+    message.classList.add(
+      "message",
+      "flex",
+      "flex-col",
+      "p-2",
+      "bg-slate-50",
+      "w-fit",
+      "rounded-md"
+    );
+    message.innerHTML = `
+    <small class="opacity-65 text-xs">${messageObject.sender.email}</small>
+    <p class="text-sm">${messageObject.message}</p>
+  `;
+    messageBox.appendChild(message);
+    scrollToBottom();
+  }
+  function appendOutgoingMessage(messageObject) {
+    const messageBox = document.querySelector(".message-box");
+
+    const message = document.createElement("div");
+    message.classList.add(
+      "message",
+      "ml-auto",
+      "flex",
+      "flex-col",
+      "p-2",
+      "bg-slate-50",
+      "w-fit",
+      "rounded-md"
+    );
+    message.innerHTML = `
+    <small class="opacity-65 text-xs">${messageObject.sender.email}</small>
+    <p class="text-sm">${messageObject.message}</p>
+  `;
+    messageBox.appendChild(message);
+    scrollToBottom();
+  }
+
+  function scrollToBottom() {
+    messageBox.current.scrollTop = messageBox.current.scrollHeight;
+  }
 
   return (
     <main className="h-screen w-screen flex">
       <section className="left relative flex flex-col h-screen min-w-96 bg-slate-300">
         <header className="flex justify-between items-center p-2 px-4 w-full bg-slate-100 absolute z-10 top-0">
           <button
-            className="flex gap-2 cursor-pointer"
+            className="flex  cursor-pointer  items-center"
             onClick={() => setIsModalOpen(true)}
           >
-            <i className="ri-add-fill mr-1"></i>
-            <p>Add collaborator</p>
+            <i className="ri-add-fill mr-1 text-xl"></i>
+            <p className="text-md">Add collaborator</p>
           </button>
           <button
             onClick={() => setIsSidePanelOpen(!isSidePanelOpen)}
@@ -194,7 +248,7 @@ const Project = () => {
             ref={messageBox}
             className="message-box p-1 flex-grow flex flex-col gap-1 overflow-auto max-h-full scrollbar-hide"
           >
-            {messages.map((msg, index) => (
+            {/*{messages.map((msg, index) => (
               <div
                 key={index}
                 className={`${
@@ -212,7 +266,19 @@ const Project = () => {
                   )}
                 </div>
               </div>
-            ))}
+            ))}*/}
+            <div  className="message flex flex-col p-2 bg-slate-50 w-fit rounded-md">
+              <small class="opacity-65 text-xs -mt-1 mb-1">
+                test@gmail.com
+              </small>
+              <p class="text-sm">Hello</p>
+            </div>
+            <div className="message ml-auto flex flex-col p-2  bg-slate-50 w-fit rounded-md">
+              <small class="opacity-65 text-xs -mt-1 mb-1 ">
+                test@gmail.com
+              </small>
+              <p class="text-sm">Hello</p>
+            </div>
           </div>
 
           <div className="inputField w-full flex absolute bottom-0 bg-slate-100">
@@ -223,7 +289,11 @@ const Project = () => {
               type="text"
               placeholder="Enter message"
             />
-            <button onClick={send} className="px-5 bg-slate-950 text-white">
+
+            <button
+              onClick={send}
+              className="px-5 bg-slate-950 text-white cursor-pointer"
+            >
               <i className="ri-send-plane-fill"></i>
             </button>
           </div>
@@ -406,23 +476,32 @@ const Project = () => {
               </button>
             </header>
             <div className="users-list flex flex-col gap-2 mb-16 max-h-96 overflow-auto">
-              {users.map((user) => (
-                <div
-                  key={user.id}
-                  className={`user cursor-pointer   rounded-md ${
-                    Array.from(selectedUserId).indexOf(user._id) != -1
-                      ? " bg-green-200 hover:bg-green-300"
-                      : "hover:bg-slate-200"
-                  } p-2 flex gap-2 items-center`}
-                  onClick={() => handleUserClick(user._id)}
-                >
-                  <div className="aspect-square relative rounded-full w-fit h-fit flex items-center justify-center p-5 text-white bg-slate-600">
-                    <i className="ri-user-fill absolute"></i>
+              {users
+                .filter(
+                  (u) =>
+                    !project.users.some((pUser) => pUser._id === u._id) &&
+                    u._id !== user._id
+                )
+                .map((filteredUser) => (
+                  <div
+                    key={filteredUser._id}
+                    className={`user cursor-pointer rounded-md ${
+                      selectedUserId.has(filteredUser._id)
+                        ? " bg-green-200 hover:bg-green-300"
+                        : "hover:bg-slate-200"
+                    } p-2 flex gap-2 items-center`}
+                    onClick={() => handleUserClick(filteredUser._id)}
+                  >
+                    <div className="aspect-square relative rounded-full w-fit h-fit flex items-center justify-center p-5 text-white bg-slate-600">
+                      <i className="ri-user-fill absolute"></i>
+                    </div>
+                    <h1 className="font-semibold text-lg">
+                      {filteredUser.email}
+                    </h1>
                   </div>
-                  <h1 className="font-semibold text-lg">{user.email}</h1>
-                </div>
-              ))}
+                ))}
             </div>
+
             <button
               onClick={addCollaborators}
               className="absolute bottom-4 cursor-pointer left-1/2 transform -translate-x-1/2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
